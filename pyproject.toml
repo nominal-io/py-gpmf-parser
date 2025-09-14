@@ -1,10 +1,6 @@
 [build-system]
-requires = [
-    "setuptools>=61.0",
-    "pybind11>=2.10.0",
-    "wheel",
-]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling", "pybind11>=2.10.0"]
+build-backend = "hatchling.build"
 
 [project]
 name = "py_gpmf_parser"
@@ -14,28 +10,91 @@ authors = [
 ]
 description = "Python bindings for the gpmf-parser library using pybind"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.12"
 urls = { Homepage = "https://github.com/urbste/py-gpmf-parser" }
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 dependencies = [
-    "numpy>=1.24.4",
+    "numpy>=2.0.0",
+    "pandas>=2.0.0",
+    "matplotlib>=3.7.0",
+    "plotly>=5.15.0",
+    "jupyter>=1.0.0",
+    "nominal>=1.0.0",
 ]
 
-[tool.setuptools]
-packages = ["py_gpmf_parser"]
+[tool.uv]
+dev-dependencies = [
+    "mypy>=1.13.0,<2",
+    "ruff>=0.7.1,<1",
+    "pytest>=8.0.0,<9",
+    "jupyterlab>=4.0.0,<5",
+    "ipykernel>=6.25.0,<7",
+]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "README.md",
+    "LICENSE",
+    "py_gpmf_parser/*",
+    "src/*",
+]
+
+[tool.hatch.build.targets.wheel]
+include = [
+    "README.md", 
+    "LICENSE",
+    "py_gpmf_parser/*",
+    "src/*",
+]
 
 [tool.cibuildwheel]
 test-command = "python {project}/tests/test.py"
 test-skip = "*universal2:arm64"
 
 [tool.ruff]
-extend-select = [
-  "B",   # flake8-bugbear
-  "I",   # isort
-  "PGH", # pygrep-hooks
-  "RUF", # Ruff-specific
-  "UP",  # pyupgrade
+line-length = 120
+target-version = "py312"
+include = ["py_gpmf_parser/**/*.py", "src/**/*.cpp", "tests/**/*.py"]
+
+[tool.ruff.lint.pylint]
+max-args = 10
+
+[tool.ruff.lint]
+# See rules and codes: https://docs.astral.sh/ruff/rules/
+select = [
+    "F",    # pyFlakes
+    "E",    # pycodestyle (Err)
+    "W",    # pycodestyle (Warn)
+    "D",    # pyDocstyle
+    "I001", # Isort
+    "B",    # flake8-bugbear
+    "PGH",  # pygrep-hooks
+    "RUF",  # Ruff-specific
+    "UP",   # pyupgrade
+    "T100"  # debugger
 ]
-extend-ignore = ["E501"]
-target-version = "py39"
+
+ignore = [
+    "E501",    # line too long (handled by line-length)
+    "D203",    # one-blank-line-before-class
+    "D205",    # 1 blank line between summary and description
+    "D213",    # multiline-summary-docs
+    "D103",    # missing-class-docstring
+    "D102",    # missing-public-method-docstring
+    "D101",    # missing-public-class-docstring
+    "D100",    # missing-module-docstring 
+    "D104",    # missing-package-docstring
+    "D400",    # doc line ends in period
+    "D415",    # doc line ends in punctuation
+    "D401",    # imperative mood
+]
+
+[tool.mypy]
+strict = true
+packages = ["py_gpmf_parser"]
+python_version = "3.12"
+
+[[tool.mypy.overrides]]
+module = "numpy.*"
+ignore_missing_imports = true
