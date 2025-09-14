@@ -75,6 +75,7 @@ ignore = [
     "E501",    # line too long (handled by line-length)
     "D203",    # one-blank-line-before-class
     "D205",    # 1 blank line between summary and description
+    "D212",    # no blank lines after class docstring"
     "D213",    # multiline-summary-docs
     "D103",    # missing-class-docstring
     "D102",    # missing-public-method-docstring

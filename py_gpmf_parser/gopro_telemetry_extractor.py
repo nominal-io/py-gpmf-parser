@@ -1,14 +1,74 @@
 import py_gpmf_parser as pgfp
 import numpy as np
+import os
+from pathlib import Path
+from typing import Union
 
 class GoProTelemetryExtractor:
-    def __init__(self, mp4_filepath):
-        self.mp4_filepath = mp4_filepath
+    def __init__(self, mp4_filepath: Union[str, Path]):
+        """
+        Initialize the GoPro telemetry extractor.
+        
+        Args:
+            mp4_filepath: Path to the MP4 file (string or Path object)
+        
+        Raises:
+            FileNotFoundError: If the specified file doesn't exist
+            ValueError: If the file is not a valid MP4 file
+        """
+        # Convert Path objects to string and validate
+        if isinstance(mp4_filepath, Path):
+            self.mp4_filepath = str(mp4_filepath.resolve())
+        else:
+            self.mp4_filepath = str(mp4_filepath)
+        
+        # Check if file exists
+        if not os.path.exists(self.mp4_filepath):
+            raise FileNotFoundError(f"MP4 file not found: {self.mp4_filepath}")
+        
+        # Check if it's a file (not a directory)
+        if not os.path.isfile(self.mp4_filepath):
+            raise ValueError(f"Path is not a file: {self.mp4_filepath}")
+        
+        # Basic file extension check
+        if not self.mp4_filepath.lower().endswith(('.mp4', '.mov')):
+            raise ValueError(f"File must be an MP4 or MOV file: {self.mp4_filepath}")
+        
         self.handle = None
 
     def open_source(self):
+        """
+        Open the MP4 source for telemetry extraction.
+        
+        Returns:
+            int: Handle to the opened source
+            
+        Raises:
+            ValueError: If source is already opened or if opening fails
+            RuntimeError: If the MP4 file doesn't contain GPMF data
+        """
         if self.handle is None:
-            self.handle = pgfp.OpenMP4Source(self.mp4_filepath, pgfp.MOV_GPMF_TRAK_TYPE, pgfp.MOV_GPMF_TRAK_SUBTYPE, 0)
+            try:
+                self.handle = pgfp.OpenMP4Source(
+                    self.mp4_filepath, 
+                    pgfp.MOV_GPMF_TRAK_TYPE, 
+                    pgfp.MOV_GPMF_TRAK_SUBTYPE, 
+                    0
+                )
+                
+                # Check if we got a valid handle
+                if self.handle <= 0:
+                    self.handle = None
+                    raise RuntimeError(f"Failed to open MP4 source. The file may not contain GPMF telemetry data: {self.mp4_filepath}")
+                
+                return self.handle
+                
+            except Exception as e:
+                self.handle = None
+                if "incompatible function arguments" in str(e):
+                    raise ValueError(f"Invalid file path format: {self.mp4_filepath}") from e
+                else:
+                    raise RuntimeError(f"Failed to open MP4 source: {e}") from e
         else:
             raise ValueError("Source is already opened!")
 
@@ -30,14 +90,33 @@ class GoProTelemetryExtractor:
             timestamps.append(i*frametime)
         return np.array(timestamps)
 
-    def extract_data(self, sensor_type):
+    def extract_data(self, sensor_type: str):
+        """
+        Extract telemetry data for a specific sensor type.
+        
+        Args:
+            sensor_type: The sensor type to extract (e.g., "ACCL", "GYRO", "GPS5")
+            
+        Returns:
+            tuple: (data_array, timestamps_array) - numpy arrays of sensor data and timestamps
+            
+        Raises:
+            ValueError: If source is not opened or sensor type is invalid
+            RuntimeError: If extraction fails
+        """
         if self.handle is None:
-            raise ValueError("Source is not opened!")
+            raise ValueError("Source is not opened! Call open_source() first.")
+
+        if not isinstance(sensor_type, str) or len(sensor_type) != 4:
+            raise ValueError(f"Sensor type must be a 4-character string, got: {sensor_type}")
 
         results = []
         timestamps = []
 
-        rate, start, end = pgfp.GetGPMFSampleRate(self.handle, pgfp.Str2FourCC(sensor_type), pgfp.Str2FourCC("SHUT"))
+        try:
+            rate, start, end = pgfp.GetGPMFSampleRate(self.handle, pgfp.Str2FourCC(sensor_type), pgfp.Str2FourCC("SHUT"))
+        except Exception as e:
+            raise RuntimeError(f"Failed to get sample rate for sensor '{sensor_type}': {e}") from e
 
         num_payloads = pgfp.GetNumberPayloads(self.handle)
         for i in range(num_payloads):
@@ -71,7 +150,16 @@ class GoProTelemetryExtractor:
                         timestamps.extend([t_in + i*delta_t/samples for i in range(samples)])
             pgfp.GPMF_ResetState(stream)
 
-        return np.array(results), np.array(timestamps) + start
+        # Convert to numpy arrays
+        data_array = np.array(results)
+        timestamp_array = np.array(timestamps) + start
+        
+        # Provide helpful feedback if no data was found
+        if len(results) == 0:
+            print(f"Warning: No '{sensor_type}' data found in the MP4 file. "
+                  f"This file may not contain telemetry data for this sensor type.")
+        
+        return data_array, timestamp_array
     
 
     def extract_data_to_json(self, json_file, sensor_types=["ACCL", "GYRO"]):
