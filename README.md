@@ -13,6 +13,9 @@ It provides access to most of the low-level functions (have a look at the **src/
 - Python 3.12 or higher
 - UV (recommended) or pip for package management
 - C++ compiler (for building the native extensions)
+  - macOS: Xcode Command Line Tools (`xcode-select --install`)
+  - Linux: GCC or Clang
+  - Windows: Visual Studio Build Tools
 
 ### Dependencies
 
@@ -38,7 +41,10 @@ cd py-gpmf-parser
 # Install the package and dependencies
 uv sync
 
-# Build and install in development mode
+# Build the C++ extension module
+uv run python setup.py build_ext --inplace
+
+# Install in development mode
 uv run python -m pip install -e .
 ```
 
@@ -106,6 +112,9 @@ uv python pin 3.12
 
 # Install development dependencies
 uv sync
+
+# Build the C++ extension module
+uv run python setup.py build_ext --inplace
 
 # Install the package in editable mode
 uv run python -m pip install -e .
