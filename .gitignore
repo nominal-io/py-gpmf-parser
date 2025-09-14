@@ -168,3 +168,4 @@ cython_debug/
 # video
 *.mp4
 *.mov
+*.csv
